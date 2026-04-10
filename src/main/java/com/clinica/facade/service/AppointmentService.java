@@ -1,18 +1,20 @@
 package com.clinica.facade.service;
 
+import com.clinica.facade.data.DataStore;
 import com.clinica.facade.entity.Cita;
 import com.clinica.facade.entity.Medico;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Service
 public class AppointmentService {
-    private final Map<String, Cita> appointments = new HashMap<>();
-    private final AtomicInteger idCounter = new AtomicInteger(1);
+    
+    @Autowired
+    private DataStore dataStore;
 
     private final List<Medico> doctors = Arrays.asList(
         new Medico("1", "Dr. Carlos Gomez", "Cardiology"),
@@ -32,6 +34,7 @@ public class AppointmentService {
         return new ArrayList<>(doctors);
     }
 
+    @SuppressWarnings("unchecked")
     public List<LocalTime> getAvailableSchedules(String doctorId, LocalDateTime date) {
         List<LocalTime> schedules = Arrays.asList(
             LocalTime.of(8, 0), LocalTime.of(9, 0), LocalTime.of(10, 0),
@@ -42,7 +45,10 @@ public class AppointmentService {
         if (dayOfWeek == 6 || dayOfWeek == 7) {
             return Collections.emptyList();
         }
+        
+        Map<String, Object> appointments = dataStore.getStorage("appointments");
         List<LocalTime> occupied = appointments.values().stream()
+            .map(o -> (Cita) o)
             .filter(c -> c.getDoctorId().equals(doctorId) 
                 && c.getDateTime().toLocalDate().equals(date.toLocalDate()))
             .map(c -> c.getDateTime().toLocalTime())
@@ -52,34 +58,50 @@ public class AppointmentService {
             .collect(Collectors.toList());
     }
 
+    @SuppressWarnings("unchecked")
     public Cita schedule(String patientId, String patientName, String doctorId, 
                        String doctorName, String specialty, LocalDateTime dateTime) {
-        String id = "APPT-" + idCounter.getAndIncrement();
-        Cita appointment = new Cita(id, patientId, patientName, doctorId, doctorName, 
+        int id = dataStore.getNextId("appointment");
+        String idStr = "APPT-" + id;
+        
+        Cita appointment = new Cita(idStr, patientId, patientName, doctorId, doctorName, 
                             specialty, dateTime, "Scheduled");
-        appointments.put(id, appointment);
+        
+        Map<String, Object> appointments = dataStore.getStorage("appointments");
+        appointments.put(idStr, appointment);
+        dataStore.persist();
+        
         return appointment;
     }
 
+    @SuppressWarnings("unchecked")
     public boolean cancel(String appointmentId) {
-        Cita appointment = appointments.get(appointmentId);
+        Map<String, Object> appointments = dataStore.getStorage("appointments");
+        Cita appointment = (Cita) appointments.get(appointmentId);
         if (appointment != null) {
             appointment.setStatus("Cancelled");
+            dataStore.persist();
             return true;
         }
         return false;
     }
 
+    @SuppressWarnings("unchecked")
     public List<Cita> getPatientAppointments(String patientId) {
+        Map<String, Object> appointments = dataStore.getStorage("appointments");
         return appointments.values().stream()
+            .map(o -> (Cita) o)
             .filter(c -> c.getPatientId().equals(patientId))
             .sorted(Comparator.comparing(Cita::getDateTime))
             .collect(Collectors.toList());
     }
 
+    @SuppressWarnings("unchecked")
     public List<Cita> getUpcomingAppointments(String patientId) {
         LocalDateTime now = LocalDateTime.now();
+        Map<String, Object> appointments = dataStore.getStorage("appointments");
         return appointments.values().stream()
+            .map(o -> (Cita) o)
             .filter(c -> c.getPatientId().equals(patientId) 
                 && c.getDateTime().isAfter(now)
                 && "Scheduled".equals(c.getStatus()))

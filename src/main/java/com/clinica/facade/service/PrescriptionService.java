@@ -1,36 +1,51 @@
 package com.clinica.facade.service;
 
+import com.clinica.facade.data.DataStore;
 import com.clinica.facade.entity.Prescripcion;
 import com.clinica.facade.entity.Medicamento;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Service
 public class PrescriptionService {
-    private final Map<String, Prescripcion> prescriptions = new HashMap<>();
-    private final AtomicInteger idCounter = new AtomicInteger(1);
+    
+    @Autowired
+    private DataStore dataStore;
 
+    @SuppressWarnings("unchecked")
     public Prescripcion generate(String patientId, String doctorId, String doctorName, 
                                List<Medicamento> medications) {
-        String id = "PRES-" + idCounter.getAndIncrement();
-        Prescripcion prescription = new Prescripcion(id, patientId, doctorId, doctorName,
+        int id = dataStore.getNextId("prescription");
+        String idStr = "PRES-" + id;
+        
+        Prescripcion prescription = new Prescripcion(idStr, patientId, doctorId, doctorName,
                                                      LocalDateTime.now(), medications);
-        prescriptions.put(id, prescription);
+        
+        Map<String, Object> prescriptions = dataStore.getStorage("prescriptions");
+        prescriptions.put(idStr, prescription);
+        dataStore.persist();
+        
         return prescription;
     }
 
+    @SuppressWarnings("unchecked")
     public List<Prescripcion> getPatientPrescriptions(String patientId) {
+        Map<String, Object> prescriptions = dataStore.getStorage("prescriptions");
         return prescriptions.values().stream()
+            .map(o -> (Prescripcion) o)
             .filter(p -> p.getPatientId().equals(patientId))
             .sorted(Comparator.comparing(Prescripcion::getDate).reversed())
             .collect(Collectors.toList());
     }
 
+    @SuppressWarnings("unchecked")
     public List<Prescripcion> getRecentPrescriptions(String patientId) {
+        Map<String, Object> prescriptions = dataStore.getStorage("prescriptions");
         return prescriptions.values().stream()
+            .map(o -> (Prescripcion) o)
             .filter(p -> p.getPatientId().equals(patientId))
             .sorted(Comparator.comparing(Prescripcion::getDate).reversed())
             .limit(3)
