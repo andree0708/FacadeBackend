@@ -1,18 +1,16 @@
 package com.clinica.facade.service;
 
-import com.clinica.facade.data.DataStore;
 import com.clinica.facade.entity.ResultadoLaboratorio;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Service
 public class LaboratoryService {
-    
-    @Autowired
-    private DataStore dataStore;
+    private final Map<String, ResultadoLaboratorio> results = new HashMap<>();
+    private final AtomicInteger idCounter = new AtomicInteger(1);
 
     private static final Map<String, double[]> REFERENCE_RANGES = new HashMap<>();
     
@@ -22,11 +20,9 @@ public class LaboratoryService {
         REFERENCE_RANGES.put("perfil lipídico", new double[]{0, 200});
     }
 
-    @SuppressWarnings("unchecked")
     public List<ResultadoLaboratorio> request(String patientId, List<String> tests) {
         List<ResultadoLaboratorio> requestedResults = new ArrayList<>();
         Random random = new Random();
-        Map<String, Object> results = dataStore.getStorage("laboratoryResults");
         
         for (String test : tests) {
             String testType = test.toLowerCase();
@@ -35,17 +31,14 @@ public class LaboratoryService {
             double value = range[0] + (range[1] - range[0]) * (0.5 + random.nextDouble() * 0.5);
             String unit = getUnit(testType);
             
-            int id = dataStore.getNextId("laboratory");
-            String idStr = "LAB-" + id;
-            
+            String id = "LAB-" + idCounter.getAndIncrement();
             ResultadoLaboratorio result = new ResultadoLaboratorio(
-                idStr, patientId, test, LocalDateTime.now(),
+                id, patientId, test, LocalDateTime.now(),
                 value, unit, range[0], range[1]
             );
-            results.put(idStr, result);
+            results.put(id, result);
             requestedResults.add(result);
         }
-        dataStore.persist();
         return requestedResults;
     }
 
@@ -58,21 +51,15 @@ public class LaboratoryService {
         }
     }
 
-    @SuppressWarnings("unchecked")
     public List<ResultadoLaboratorio> getPatientResults(String patientId) {
-        Map<String, Object> results = dataStore.getStorage("laboratoryResults");
         return results.values().stream()
-            .map(o -> (ResultadoLaboratorio) o)
             .filter(r -> r.getPatientId().equals(patientId))
             .sorted(Comparator.comparing(ResultadoLaboratorio::getDate).reversed())
             .collect(Collectors.toList());
     }
 
-    @SuppressWarnings("unchecked")
     public List<ResultadoLaboratorio> getRecentResults(String patientId) {
-        Map<String, Object> results = dataStore.getStorage("laboratoryResults");
         return results.values().stream()
-            .map(o -> (ResultadoLaboratorio) o)
             .filter(r -> r.getPatientId().equals(patientId))
             .sorted(Comparator.comparing(ResultadoLaboratorio::getDate).reversed())
             .limit(5)

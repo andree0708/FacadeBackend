@@ -1,35 +1,25 @@
 package com.clinica.facade.service;
 
-import com.clinica.facade.data.DataStore;
 import com.clinica.facade.dto.PatientRequest;
 import com.clinica.facade.entity.Paciente;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class PatientService {
-    
-    @Autowired
-    private DataStore dataStore;
+    private final Map<String, Paciente> patients = new HashMap<>();
+    private final AtomicInteger idCounter = new AtomicInteger(1);
 
-    @SuppressWarnings("unchecked")
     public Paciente register(PatientRequest request) {
-        Map<String, Object> patients = dataStore.getStorage("patients");
-        
-        for (Object obj : patients.values()) {
-            Paciente p = (Paciente) obj;
+        for (Paciente p : patients.values()) {
             if (p.getDocument().equals(request.getDocument())) {
                 throw new RuntimeException("Document already registered");
             }
         }
-        
-        int id = dataStore.getNextId("patient");
-        String idStr = String.valueOf(id);
-        
+        String id = String.valueOf(idCounter.getAndIncrement());
         Paciente patient = new Paciente(
-            idStr,
+            id,
             request.getName(),
             request.getDocument(),
             request.getEmail(),
@@ -37,40 +27,25 @@ public class PatientService {
             request.getBirthDate(),
             request.getAllergies()
         );
-        
-        patients.put(idStr, patient);
-        dataStore.persist();
-        
+        patients.put(id, patient);
         return patient;
     }
 
-    @SuppressWarnings("unchecked")
     public Optional<Paciente> findById(String id) {
-        Map<String, Object> patients = dataStore.getStorage("patients");
-        Paciente patient = (Paciente) patients.get(id);
-        return Optional.ofNullable(patient);
+        return Optional.ofNullable(patients.get(id));
     }
 
-    @SuppressWarnings("unchecked")
     public Optional<Paciente> findByDocument(String document) {
-        Map<String, Object> patients = dataStore.getStorage("patients");
         return patients.values().stream()
-            .map(p -> (Paciente) p)
             .filter(p -> p.getDocument().equals(document))
             .findFirst();
     }
 
-    @SuppressWarnings("unchecked")
     public List<Paciente> findAll() {
-        Map<String, Object> patients = dataStore.getStorage("patients");
-        return patients.values().stream()
-            .map(p -> (Paciente) p)
-            .collect(Collectors.toList());
+        return new ArrayList<>(patients.values());
     }
 
-    @SuppressWarnings("unchecked")
     public boolean existsById(String id) {
-        Map<String, Object> patients = dataStore.getStorage("patients");
         return patients.containsKey(id);
     }
 }
