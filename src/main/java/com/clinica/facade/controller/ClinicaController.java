@@ -3,6 +3,8 @@ package com.clinica.facade.controller;
 import com.clinica.facade.dto.*;
 import com.clinica.facade.entity.*;
 import com.clinica.facade.facade.ClinicaFacade;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -12,17 +14,22 @@ import java.util.List;
 @RequestMapping("/api/clinica")
 @CrossOrigin(origins = "*")
 public class ClinicaController {
+    
+    private static final Logger logger = LoggerFactory.getLogger(ClinicaController.class);
 
     @Autowired
     private ClinicaFacade clinicaFacade;
 
     @PostMapping("/paciente")
-    public ResponseEntity<Paciente> registerPatient(@RequestBody PatientRequest request) {
+    public ResponseEntity<?> registerPatient(@RequestBody PatientRequest request) {
         try {
+            logger.info("Registering patient: {}", request.getName());
             Paciente patient = clinicaFacade.registerPatient(request);
+            logger.info("Patient registered successfully with ID: {}", patient.getId());
             return ResponseEntity.ok(patient);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+            logger.error("Error registering patient: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         }
     }
 
@@ -37,6 +44,7 @@ public class ClinicaController {
             );
             return ResponseEntity.ok(appointment);
         } catch (Exception e) {
+            logger.error("Error scheduling appointment: {}", e.getMessage());
             return ResponseEntity.badRequest().build();
         }
     }
@@ -47,6 +55,7 @@ public class ClinicaController {
             CompleteHistory history = clinicaFacade.viewCompleteHistory(patientId);
             return ResponseEntity.ok(history);
         } catch (Exception e) {
+            logger.error("Error getting history: {}", e.getMessage());
             return ResponseEntity.notFound().build();
         }
     }
@@ -60,6 +69,7 @@ public class ClinicaController {
             );
             return ResponseEntity.ok(prescription);
         } catch (Exception e) {
+            logger.error("Error generating prescription: {}", e.getMessage());
             return ResponseEntity.badRequest().build();
         }
     }
@@ -73,6 +83,7 @@ public class ClinicaController {
             );
             return ResponseEntity.ok(results);
         } catch (Exception e) {
+            logger.error("Error requesting labs: {}", e.getMessage());
             return ResponseEntity.badRequest().build();
         }
     }
@@ -123,5 +134,26 @@ public class ClinicaController {
     public ResponseEntity<List<Prescripcion>> getRecentPrescriptions(@PathVariable String patientId) {
         List<Prescripcion> prescriptions = clinicaFacade.getRecentPrescriptions(patientId);
         return ResponseEntity.ok(prescriptions);
+    }
+    
+    @DeleteMapping("/cita/{appointmentId}")
+    public ResponseEntity<Void> cancelAppointment(@PathVariable String appointmentId) {
+        try {
+            clinicaFacade.cancelAppointment(appointmentId);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    static class ErrorResponse {
+        private String message;
+        
+        public ErrorResponse(String message) {
+            this.message = message;
+        }
+        
+        public String getMessage() { return message; }
+        public void setMessage(String message) { this.message = message; }
     }
 }

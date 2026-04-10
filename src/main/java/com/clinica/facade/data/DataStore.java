@@ -7,10 +7,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
 public class DataStore {
+    private static final Logger logger = LoggerFactory.getLogger(DataStore.class);
     private static final String DATA_FILE = "clinica-data.json";
     private final ObjectMapper mapper;
     private Map<String, Object> data;
@@ -24,6 +27,7 @@ public class DataStore {
         String dataDir = System.getenv("DATA_DIR") != null ? System.getenv("DATA_DIR") : ".";
         dataPath = Paths.get(dataDir, DATA_FILE);
         
+        logger.info("DataStore initialized with path: {}", dataPath);
         loadData();
     }
 
@@ -31,14 +35,17 @@ public class DataStore {
     private void loadData() {
         try {
             if (Files.exists(dataPath)) {
+                logger.info("Loading existing data from: {}", dataPath);
                 String json = new String(Files.readAllBytes(dataPath));
                 data = mapper.readValue(json, Map.class);
+                logger.info("Data loaded successfully. Keys: {}", data.keySet());
             } else {
+                logger.info("No existing data file found, creating new");
                 data = new ConcurrentHashMap<>();
                 initializeDefaultData();
             }
         } catch (Exception e) {
-            System.err.println("Error loading data: " + e.getMessage());
+            logger.error("Error loading data: {}", e.getMessage(), e);
             data = new ConcurrentHashMap<>();
             initializeDefaultData();
         }
@@ -57,14 +64,16 @@ public class DataStore {
         try {
             String json = mapper.writeValueAsString(data);
             Files.write(dataPath, json.getBytes());
+            logger.debug("Data saved to: {}", dataPath);
         } catch (Exception e) {
-            System.err.println("Error saving data: " + e.getMessage());
+            logger.error("Error saving data: {}", e.getMessage(), e);
         }
     }
 
     @SuppressWarnings("unchecked")
     public Map<String, Object> getStorage(String key) {
         if (!data.containsKey(key)) {
+            logger.debug("Creating new storage for key: {}", key);
             data.put(key, new ConcurrentHashMap<>());
         }
         return (Map<String, Object>) data.get(key);
