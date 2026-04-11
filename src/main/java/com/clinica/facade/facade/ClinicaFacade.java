@@ -47,7 +47,7 @@ public class ClinicaFacade {
                                           doctor.getName(), specialty, dateTime);
         
         medicalHistoryService.registerConsultation(patientId, doctor.getId(), doctor.getName(),
-                                                  specialty, "Appointment scheduled", "Schedule");
+                                                  specialty, "Cita agendada", "Agenda");
         
         return appointment;
     }
@@ -91,7 +91,7 @@ public class ClinicaFacade {
         
         Prescripcion prescription = prescriptionService.generate(patientId, doctorId, doctorName, medications);
         medicalHistoryService.registerConsultation(patientId, doctorId, doctorName, "General Medicine",
-                                                  "Prescription generated", "Treatment");
+                                                  "Prescripción generada", "Tratamiento");
         
         return prescription;
     }
@@ -104,7 +104,7 @@ public class ClinicaFacade {
         
         List<ResultadoLaboratorio> results = laboratoryService.request(patientId, tests);
         medicalHistoryService.registerConsultation(patientId, "LAB", "Laboratory", "Laboratory",
-                                                  "Tests requested: " + String.join(", ", tests), "Laboratory");
+                                                  "Exámenes solicitados: " + String.join(", ", tests), "Laboratorio");
         
         return results;
     }
